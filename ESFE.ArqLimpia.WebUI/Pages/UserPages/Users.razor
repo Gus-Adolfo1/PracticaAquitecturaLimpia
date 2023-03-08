@@ -1,0 +1,164 @@
+﻿@page "/users"
+
+@if (searchUserOutputDTO == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="card">
+        <div class="card-header">
+            <div class="row">
+                <div class="col-sm">
+                    <button type="button" class="btn btn-primary" @onclick="(()=> OpenModal())">Nuevo Usuario</button>
+                </div>
+                <div class="col-sm">
+
+                </div>
+                <div class="col-sm">
+                    <input type="text" class="form-control" placeholder="Buscar por Usuario"
+                       @bind-value="@searchUserInputDTO.Name"  />
+                </div>
+                <div class="col-sm">
+                    <input type="text" class="form-control" placeholder="Buscar por Correo"
+                       @bind-value="@searchUserInputDTO.Email" />
+                </div>
+                <div class="col-sm">
+                    <button type="button" class="btn btn-primary" @onclick="(()=> AllUsers())">Buscar</button>
+                </div>
+            </div> 
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Correo</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in searchUserOutputDTO)
+                    {
+                        <tr>
+                            <td>@item.Name</td>
+                            <td>@item.Email</td>
+                            <td>
+                                <button type="button" class="btn btn-info" @onclick="(()=>UpdateUser(item.Id))">Editar</button>
+                                <button type="button" class="btn btn-danger" @onclick="(()=>DeleteUser(item.Id))">Eliminar</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (IsOpen)
+{
+    <!-- Modal -->
+    <div class="modal fade show" id="staticBackdropLive" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLiveLabel" aria-modal="true" role="dialog" style="display: block;">
+        <EditForm Model="createUserInputDTO" OnSubmit="SaveUser" class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="staticBackdropLiveLabel">Datos de Usuario</h5>
+                    <button type="button" class="btn-close" @onclick="(()=>CloseModal())" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" @bind-value="@userId">
+                    <div class="mb-3">
+                        <label for="exampleFormControlInput1" class="form-label">Nombre de Usuario</label>
+                        <input type="text" class="form-control" id="exampleFormControlInput1" @bind-value="createUserInputDTO.Name">
+                    </div>
+                    @if (userId == 0)
+                    {
+                        <div class="mb-3">
+                            <label for="exampleFormControlInput2" class="form-label">Correo</label>
+                            <input type="email" class="form-control" id="exampleFormControlInput2" @bind-value="createUserInputDTO.Email">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="exampleFormControlInput3" class="form-label">Clave</label>
+                            <input type="password" class="form-control" id="exampleFormControlInput3" @bind-value="createUserInputDTO.Password">
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="(()=>CloseModal())">Cerrar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="modal-backdrop fade show"></div>
+}
+
+@inject IUserBL userBL
+
+@code {
+    CreateUserInputDTO createUserInputDTO = new CreateUserInputDTO();
+    List<SearchUserOutputDTO> searchUserOutputDTO;
+    SearchUserInputDTO searchUserInputDTO = new SearchUserInputDTO();
+    bool IsOpen { get; set; }
+    int userId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AllUsers();
+    }
+
+    private async Task AllUsers()
+    {
+        try
+        {
+            searchUserOutputDTO = await userBL.Search(new SearchUserInputDTO() { Name = searchUserInputDTO.Name, Email = searchUserInputDTO.Email });
+        }
+        catch(Exception ex){
+            searchUserOutputDTO = new List<SearchUserOutputDTO>();
+        }
+    }
+
+    private async Task SaveUser()
+    {
+        if (userId > 0)
+        {
+            var result = await userBL.Update(new UpdateUserDTO { Id = userId, Name = createUserInputDTO.Name });
+        }
+        else
+        {
+            var result = await userBL.Create(createUserInputDTO);
+        }
+        await AllUsers();
+        await CloseModal();
+    }
+
+    private async Task OpenModal()
+    {
+        IsOpen = true;
+    }
+
+
+    private async Task UpdateUser(int id)
+    {
+        var model = await userBL.GetById(new GetByIdUserInputDTO { Id = id });
+        userId = model.Id;
+        createUserInputDTO = new CreateUserInputDTO { Name = model.Name };
+
+        await OpenModal();
+    }
+
+    private async Task DeleteUser(int id)
+    {
+        await userBL.Delete(new DeleteUserDTO { Id = id });
+        await AllUsers();
+    }
+
+    private async Task CloseModal()
+    {
+        IsOpen = !IsOpen;
+        userId = 0;
+        createUserInputDTO = new CreateUserInputDTO();
+    }
+}
